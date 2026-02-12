@@ -147,6 +147,7 @@ const App: React.FC = () => {
         <Dashboard 
           staffList={staffList} 
           todayStats={todayStats} 
+          overrides={overrides}
           onNavigate={setActiveView} 
         />
       )}
