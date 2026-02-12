@@ -26,7 +26,7 @@ const App: React.FC = () => {
   });
   const [authError, setAuthError] = useState('');
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
-  
+
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -51,7 +51,7 @@ const App: React.FC = () => {
       setIsLoading(true);
       try {
         const response = await fetch('/.netlify/functions/data');
-        
+
         if (response.status === 404) {
           console.warn('Cloud Sync: Endpoint not detected.');
           loadFromLocal();
@@ -62,7 +62,7 @@ const App: React.FC = () => {
         const cloudData = await response.json();
 
         // Check for configuration errors from the function
-        if (cloudData.error === "BLOB_NOT_CONFIGURED" || cloudData.error === "SERVER_UNAVAILABLE") {
+        if (cloudData.error === "BLOB_NOT_CONFIGURED" || cloudData.error === "BLOB_READ_FAILED" || cloudData.error === "SERVER_UNAVAILABLE") {
           console.info('Cloud Sync: Server storage unavailable. Using local mode.');
           loadFromLocal();
           setSyncStatus('local');
@@ -105,19 +105,19 @@ const App: React.FC = () => {
         const response = await fetch('/.netlify/functions/data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            staffList, 
-            overrides, 
+          body: JSON.stringify({
+            staffList,
+            overrides,
             lastUpdated: new Date().toISOString(),
             client: 'MedRota-Web-Client'
           })
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok && result.success) {
           setSyncStatus('synced');
-        } else if (result.error === "BLOB_NOT_CONFIGURED" || result.error === "SERVER_UNAVAILABLE") {
+        } else if (result.error === "BLOB_NOT_CONFIGURED" || result.error === "BLOB_WRITE_FAILED" || result.error === "SERVER_UNAVAILABLE") {
           setSyncStatus('local');
         } else {
           setSyncStatus('error');
@@ -230,7 +230,7 @@ const App: React.FC = () => {
       </div>
 
       <div className="absolute top-4 right-8 z-50">
-        <button 
+        <button
           onClick={handleLogout}
           className="bg-white border border-slate-200 text-slate-500 text-xs px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all font-medium shadow-sm"
         >
@@ -239,23 +239,23 @@ const App: React.FC = () => {
       </div>
 
       {activeView === 'dashboard' && (
-        <Dashboard 
-          staffList={staffList} 
-          todayStats={todayStats} 
+        <Dashboard
+          staffList={staffList}
+          todayStats={todayStats}
           overrides={overrides}
-          onNavigate={setActiveView} 
+          onNavigate={setActiveView}
         />
       )}
       {activeView === 'staff' && (
-        <StaffManagement 
-          staffList={staffList} 
+        <StaffManagement
+          staffList={staffList}
           onAdd={handleAddStaff}
           onUpdate={handleUpdateStaff}
           onDelete={handleDeleteStaff}
         />
       )}
       {activeView === 'schedule' && (
-        <ScheduleGrid 
+        <ScheduleGrid
           staffList={staffList}
           month={currentMonth}
           year={currentYear}
@@ -266,7 +266,7 @@ const App: React.FC = () => {
         />
       )}
       {activeView === 'travel' && (
-        <TravelDetails 
+        <TravelDetails
           staffList={staffList}
           month={currentMonth}
           year={currentYear}

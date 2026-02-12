@@ -15,14 +15,9 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    // The user provided Site ID: b1d22fef-1fba-44d3-9de4-0e42c55242f3
-    // We try to use the environment variables first (standard Netlify behavior)
-    // and fall back to the provided ID if needed.
-    const store = getStore({
-      name: 'hospital-records',
-      siteID: process.env.SITE_ID || 'b1d22fef-1fba-44d3-9de4-0e42c55242f3',
-      token: process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_AUTH_TOKEN
-    });
+    // Let Netlify automatically inject siteID, token & deploy context.
+    // Do NOT pass siteID/token manually — the runtime provides them.
+    const store = getStore('hospital-records');
 
     if (event.httpMethod === 'GET') {
       try {
@@ -38,7 +33,7 @@ export const handler: Handler = async (event, context) => {
           statusCode: 200,
           headers,
           body: JSON.stringify({ 
-            error: "BLOB_READ_FAILED", 
+            error: "BLOB_NOT_CONFIGURED", 
             message: blobError.message,
             tip: "Ensure 'Netlify Blobs' is enabled in your site dashboard under 'Storage'."
           })
@@ -61,7 +56,7 @@ export const handler: Handler = async (event, context) => {
           statusCode: 200,
           headers,
           body: JSON.stringify({ 
-            error: "BLOB_WRITE_FAILED", 
+            error: "BLOB_NOT_CONFIGURED", 
             message: postError.message 
           })
         };
@@ -80,9 +75,9 @@ export const handler: Handler = async (event, context) => {
       headers, 
       body: JSON.stringify({ 
         error: 'SERVER_UNAVAILABLE', 
-        message: criticalError.message || "Credential error. Please ensure you are running via 'netlify dev' or have linked the site correctly.",
-        siteID: 'b1d22fef-1fba-44d3-9de4-0e42c55242f3'
+        message: criticalError.message || "Could not initialize blob store. Ensure you are running via 'netlify dev' or the site is deployed on Netlify."
       }) 
     };
   }
 };
+
