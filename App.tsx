@@ -52,34 +52,35 @@ const App: React.FC = () => {
       try {
         const response = await fetch('/.netlify/functions/data');
         
-        // Handle 404 (Missing Endpoint) or 502 (Proxy issues)
+        // Handle physical endpoint missing (standard 404)
         if (response.status === 404) {
-          console.log('Cloud Sync: Endpoint not found. Operating in local-only mode.');
+          console.log('Cloud Sync: Function endpoint not detected. Operating in local-only mode.');
           loadFromLocal();
           setSyncStatus('local');
           return;
         }
 
-        const contentType = response.headers.get("content-type");
-        if (!response.ok || !contentType || !contentType.includes("application/json")) {
-          throw new Error('Server returned non-JSON response');
-        }
-
         const cloudData = await response.json();
+
+        // Check for specific "Not Configured" error from our function
+        if (cloudData.error === "BLOB_NOT_CONFIGURED" || cloudData.error === "SERVER_CRASH") {
+          console.info('Cloud Sync: Server side storage is not configured. Switching to local persistence.');
+          loadFromLocal();
+          setSyncStatus('local');
+          return;
+        }
 
         if (cloudData.staffList && Array.isArray(cloudData.staffList)) {
           setStaffList(cloudData.staffList);
           setOverrides(cloudData.overrides || []);
           setSyncStatus('synced');
+          console.log('Cloud Sync: Data synchronized successfully.');
         } else {
           loadFromLocal();
           setSyncStatus('local');
         }
       } catch (e) {
-        // Only log critical errors that aren't expected connection issues
-        if (e instanceof Error && e.message !== 'Failed to fetch') {
-          console.warn('Cloud Sync Notice:', e.message);
-        }
+        console.warn('Cloud Sync: Could not establish connection. Using local fallback.');
         loadFromLocal();
         setSyncStatus('local');
       } finally {
@@ -94,12 +95,12 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoading || !isAuthenticated || staffList.length === 0) return;
 
+    // Always save to local storage immediately
     localStorage.setItem('medrota_staff', JSON.stringify(staffList));
     localStorage.setItem('medrota_overrides', JSON.stringify(overrides));
 
-    // Only attempt cloud sync if we're not in a known "local-only" state 
-    // to avoid unnecessary console errors
-    if (syncStatus === 'local' && !window.location.hostname.includes('netlify')) return;
+    // Do not attempt to sync if we've already determined we are in "local-only" mode
+    if (syncStatus === 'local') return;
 
     const syncTimer = setTimeout(async () => {
       setSyncStatus('syncing');
@@ -110,8 +111,12 @@ const App: React.FC = () => {
           body: JSON.stringify({ staffList, overrides, lastUpdated: new Date().toISOString() })
         });
         
-        if (response.ok) {
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
           setSyncStatus('synced');
+        } else if (result.error === "BLOB_NOT_CONFIGURED" || result.error === "SERVER_CRASH") {
+          setSyncStatus('local'); // Graceful fallback if it fails mid-session
         } else {
           setSyncStatus('error');
         }

@@ -15,7 +15,21 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    const store = getStore('hospital-records');
+    // Attempt to initialize the store inside the handler to catch config errors
+    let store;
+    try {
+      store = getStore('hospital-records');
+    } catch (configError: any) {
+      console.warn('Netlify Blobs not configured:', configError.message);
+      return {
+        statusCode: 200, // Return 200 so the frontend can read the error payload gracefully
+        headers,
+        body: JSON.stringify({ 
+          error: "BLOB_NOT_CONFIGURED", 
+          message: "Netlify Blobs requires a linked site and proper environment. Defaulting to local storage." 
+        })
+      };
+    }
 
     if (event.httpMethod === 'GET') {
       try {
@@ -29,7 +43,7 @@ export const handler: Handler = async (event, context) => {
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify({ error: "BLOB_INIT", details: blobError.message })
+          body: JSON.stringify({ error: "BLOB_READ_ERROR", details: blobError.message })
         };
       }
     }
@@ -58,10 +72,14 @@ export const handler: Handler = async (event, context) => {
       body: JSON.stringify({ error: 'Method Not Allowed' }) 
     };
   } catch (error: any) {
+    console.error('Critical Function Failure:', error);
     return { 
-      statusCode: 500, 
+      statusCode: 200, // Return 200 even on crash to allow frontend to handle the JSON error
       headers, 
-      body: JSON.stringify({ error: 'SERVER_CRASH', message: error.message }) 
+      body: JSON.stringify({ 
+        error: 'SERVER_CRASH', 
+        message: error.message || 'Unknown internal error' 
+      }) 
     };
   }
 };
