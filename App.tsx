@@ -64,7 +64,8 @@ const App: React.FC = () => {
   }, [staffList, overrides]);
 
   const handleLogin = (password: string) => {
-    if (password === 'admin') {
+    // Changed allowed password from 'admin' to 'mk123'
+    if (password === 'mk123') {
       setIsAuthenticated(true);
       sessionStorage.setItem('medrota_auth', 'true');
       setAuthError('');

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface LoginProps {
@@ -57,7 +58,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
                 Authorized Personnel Only. <br/>
                 All access attempts are logged.
               </p>
-              <p className="text-[10px] text-slate-300 mt-4 italic">Hint: use "admin" for demo</p>
             </div>
           </form>
         </div>
