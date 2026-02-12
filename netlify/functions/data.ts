@@ -2,18 +2,7 @@
 import { Handler } from '@netlify/functions';
 import { getStore } from '@netlify/blobs';
 
-/**
- * MEDROTA CLOUD SYNC FUNCTION (Netlify Blobs Version)
- * This function uses Netlify's built-in Key-Value storage (Blobs) 
- * to persist hospital data without an external database.
- */
-
 export const handler: Handler = async (event, context) => {
-  const { httpMethod } = event;
-  
-  // Initialize the Netlify Blob store
-  const store = getStore('hospital-records');
-
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -21,41 +10,46 @@ export const handler: Handler = async (event, context) => {
     'Content-Type': 'application/json'
   };
 
-  if (httpMethod === 'OPTIONS') {
+  if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers };
   }
 
   try {
-    if (httpMethod === 'GET') {
-      // Fetch the data from the blob store
-      const data = await store.get('rota-json', { type: 'json' });
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(data || { 
-          status: "empty", 
-          message: "No cloud data found yet." 
-        }),
-      };
+    const store = getStore('hospital-records');
+
+    if (event.httpMethod === 'GET') {
+      try {
+        const data = await store.get('rota-json', { type: 'json' });
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(data || { status: "empty" }),
+        };
+      } catch (blobError: any) {
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ error: "BLOB_INIT", details: blobError.message })
+        };
+      }
     }
 
-    if (httpMethod === 'POST') {
-      const payload = JSON.parse(event.body || '{}');
-      
-      // Save the payload to the blob store
-      await store.setJSON('rota-json', payload);
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ 
-          success: true, 
-          syncedAt: new Date().toISOString(),
-          persistent: true,
-          provider: "Netlify Blobs"
-        }),
-      };
+    if (event.httpMethod === 'POST') {
+      try {
+        const payload = JSON.parse(event.body || '{}');
+        await store.setJSON('rota-json', payload);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ success: true }),
+        };
+      } catch (postError: any) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: "BAD_REQUEST", details: postError.message })
+        };
+      }
     }
 
     return { 
@@ -64,11 +58,10 @@ export const handler: Handler = async (event, context) => {
       body: JSON.stringify({ error: 'Method Not Allowed' }) 
     };
   } catch (error: any) {
-    console.error('Server Error:', error);
     return { 
       statusCode: 500, 
       headers, 
-      body: JSON.stringify({ error: 'Sync Error', details: error.message }) 
+      body: JSON.stringify({ error: 'SERVER_CRASH', message: error.message }) 
     };
   }
 };

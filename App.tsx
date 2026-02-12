@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState('');
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
   
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('synced');
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
   const [isLoading, setIsLoading] = useState(true);
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -36,7 +36,14 @@ const App: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  // 1. Initial Data Fetch from Netlify Blobs
+  const loadFromLocal = () => {
+    const savedStaff = localStorage.getItem('medrota_staff');
+    const savedOverrides = localStorage.getItem('medrota_overrides');
+    setStaffList(savedStaff ? JSON.parse(savedStaff) : INITIAL_STAFF);
+    setOverrides(savedOverrides ? JSON.parse(savedOverrides) : []);
+  };
+
+  // 1. Initial Data Fetch
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -44,27 +51,37 @@ const App: React.FC = () => {
       setIsLoading(true);
       try {
         const response = await fetch('/.netlify/functions/data');
-        if (response.ok) {
-          const cloudData = await response.json();
-          if (cloudData.staffList && cloudData.staffList.length > 0) {
-            setStaffList(cloudData.staffList);
-            setOverrides(cloudData.overrides || []);
-            setSyncStatus('synced');
-            console.log('Data loaded from Netlify Blobs');
-          } else {
-            // Fallback to local if cloud is empty or status is "empty"
-            const savedStaff = localStorage.getItem('medrota_staff');
-            const savedOverrides = localStorage.getItem('medrota_overrides');
-            setStaffList(savedStaff ? JSON.parse(savedStaff) : INITIAL_STAFF);
-            setOverrides(savedOverrides ? JSON.parse(savedOverrides) : []);
-            setSyncStatus('local');
-          }
+        
+        // Handle 404 (Missing Endpoint) or 502 (Proxy issues)
+        if (response.status === 404) {
+          console.log('Cloud Sync: Endpoint not found. Operating in local-only mode.');
+          loadFromLocal();
+          setSyncStatus('local');
+          return;
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!response.ok || !contentType || !contentType.includes("application/json")) {
+          throw new Error('Server returned non-JSON response');
+        }
+
+        const cloudData = await response.json();
+
+        if (cloudData.staffList && Array.isArray(cloudData.staffList)) {
+          setStaffList(cloudData.staffList);
+          setOverrides(cloudData.overrides || []);
+          setSyncStatus('synced');
+        } else {
+          loadFromLocal();
+          setSyncStatus('local');
         }
       } catch (e) {
-        console.error('Failed to fetch from Blobs', e);
-        setSyncStatus('error');
-        const savedStaff = localStorage.getItem('medrota_staff');
-        setStaffList(savedStaff ? JSON.parse(savedStaff) : INITIAL_STAFF);
+        // Only log critical errors that aren't expected connection issues
+        if (e instanceof Error && e.message !== 'Failed to fetch') {
+          console.warn('Cloud Sync Notice:', e.message);
+        }
+        loadFromLocal();
+        setSyncStatus('local');
       } finally {
         setIsLoading(false);
       }
@@ -73,12 +90,16 @@ const App: React.FC = () => {
     loadInitialData();
   }, [isAuthenticated]);
 
-  // 2. Debounced Sync to Netlify Blobs
+  // 2. Sync to Cloud
   useEffect(() => {
     if (isLoading || !isAuthenticated || staffList.length === 0) return;
 
     localStorage.setItem('medrota_staff', JSON.stringify(staffList));
     localStorage.setItem('medrota_overrides', JSON.stringify(overrides));
+
+    // Only attempt cloud sync if we're not in a known "local-only" state 
+    // to avoid unnecessary console errors
+    if (syncStatus === 'local' && !window.location.hostname.includes('netlify')) return;
 
     const syncTimer = setTimeout(async () => {
       setSyncStatus('syncing');
@@ -88,6 +109,7 @@ const App: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ staffList, overrides, lastUpdated: new Date().toISOString() })
         });
+        
         if (response.ok) {
           setSyncStatus('synced');
         } else {
@@ -96,7 +118,7 @@ const App: React.FC = () => {
       } catch (e) {
         setSyncStatus('error');
       }
-    }, 1500);
+    }, 3000);
 
     return () => clearTimeout(syncTimer);
   }, [staffList, overrides, isLoading, isAuthenticated]);
@@ -166,7 +188,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-slate-500 font-medium animate-pulse">Loading Hospital Records from Cloud...</p>
+          <p className="text-slate-500 font-medium animate-pulse">Initializing Hospital Records...</p>
         </div>
       </div>
     );
@@ -187,9 +209,15 @@ const App: React.FC = () => {
             Cloud Persistent
           </div>
         )}
+        {syncStatus === 'local' && (
+          <div className="bg-slate-100 text-slate-600 text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-200 shadow-sm opacity-60">
+            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+            Local Mode
+          </div>
+        )}
         {syncStatus === 'error' && (
           <div className="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
-            <span>⚠️ Sync Failure</span>
+            <span>⚠️ Sync Issue</span>
           </div>
         )}
       </div>
