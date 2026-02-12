@@ -2,16 +2,17 @@
 import React, { useState } from 'react';
 
 interface LoginProps {
-  onLogin: (password: string) => void;
+  onLogin: (username: string, password: string) => void;
   error?: string;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(password);
+    onLogin(username, password);
   };
 
   return (
@@ -25,10 +26,23 @@ const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
             <h1 className="text-2xl font-bold text-white">MedRota Pro</h1>
             <p className="text-blue-100 text-sm mt-1">Hospital Staff Portal Login</p>
           </div>
-          
+
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Staff Access Key</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Username</label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                placeholder="Enter username"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
               <input
                 type="password"
                 required
@@ -36,7 +50,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-center tracking-widest text-lg"
                 placeholder="••••••••"
-                autoFocus
               />
             </div>
 
@@ -55,7 +68,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
 
             <div className="pt-4 text-center">
               <p className="text-xs text-slate-400">
-                Authorized Personnel Only. <br/>
+                Authorized Personnel Only. <br />
                 All access attempts are logged.
               </p>
             </div>

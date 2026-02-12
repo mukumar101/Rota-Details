@@ -115,13 +115,13 @@ const App: React.FC = () => {
     return () => clearTimeout(syncTimer);
   }, [staffList, overrides, isLoading, isAuthenticated]);
 
-  const handleLogin = (password: string) => {
-    if (password === 'mk123') {
+  const handleLogin = (username: string, password: string) => {
+    if (username === 'Admin' && password === 'mk123') {
       setIsAuthenticated(true);
       sessionStorage.setItem('medrota_auth', 'true');
       setAuthError('');
     } else {
-      setAuthError('Invalid Access Key. Please contact the administrator.');
+      setAuthError('Invalid username or password. Please contact the administrator.');
     }
   };
 
