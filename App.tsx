@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState('');
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
 
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('syncing');
   const [isLoading, setIsLoading] = useState(true);
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -36,12 +36,7 @@ const App: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  const loadFromLocal = () => {
-    const savedStaff = localStorage.getItem('medrota_staff');
-    const savedOverrides = localStorage.getItem('medrota_overrides');
-    setStaffList(savedStaff ? JSON.parse(savedStaff) : INITIAL_STAFF);
-    setOverrides(savedOverrides ? JSON.parse(savedOverrides) : []);
-  };
+
 
   // 1. Initial Data Fetch
   useEffect(() => {
@@ -52,35 +47,28 @@ const App: React.FC = () => {
       try {
         const response = await fetch('/.netlify/functions/data');
 
-        if (response.status === 404) {
-          console.warn('Cloud Sync: Endpoint not detected.');
-          loadFromLocal();
-          setSyncStatus('local');
+        if (!response.ok) {
+          console.error(`Cloud Sync: Server returned ${response.status}`);
+          setSyncStatus('error');
           return;
         }
 
         const cloudData = await response.json();
-
-        // Check for configuration errors from the function
-        if (cloudData.error === "BLOB_NOT_CONFIGURED" || cloudData.error === "BLOB_READ_FAILED" || cloudData.error === "SERVER_UNAVAILABLE") {
-          console.info('Cloud Sync: Server storage unavailable. Using local mode.');
-          loadFromLocal();
-          setSyncStatus('local');
-          return;
-        }
 
         if (cloudData.staffList && Array.isArray(cloudData.staffList)) {
           setStaffList(cloudData.staffList);
           setOverrides(cloudData.overrides || []);
           setSyncStatus('synced');
         } else {
-          loadFromLocal();
-          setSyncStatus('local');
+          // First-time setup: seed initial data to cloud
+          console.info('Cloud Sync: No data in store. Seeding initial data...');
+          setStaffList(INITIAL_STAFF);
+          setOverrides([]);
+          setSyncStatus('synced');
         }
       } catch (e) {
-        console.warn('Cloud Sync: Network or fetch error. Falling back to local storage.');
-        loadFromLocal();
-        setSyncStatus('local');
+        console.error('Cloud Sync: Network or fetch error.', e);
+        setSyncStatus('error');
       } finally {
         setIsLoading(false);
       }
@@ -93,12 +81,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoading || !isAuthenticated || staffList.length === 0) return;
 
-    // Persist to local storage immediately
-    localStorage.setItem('medrota_staff', JSON.stringify(staffList));
-    localStorage.setItem('medrota_overrides', JSON.stringify(overrides));
-
-    // If we are in local mode because of a config error, don't spam the console
-    // BUT we check again every time data changes to see if sync is possible now
     const syncTimer = setTimeout(async () => {
       setSyncStatus('syncing');
       try {
@@ -113,16 +95,19 @@ const App: React.FC = () => {
           })
         });
 
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-          setSyncStatus('synced');
-        } else if (result.error === "BLOB_NOT_CONFIGURED" || result.error === "BLOB_WRITE_FAILED" || result.error === "SERVER_UNAVAILABLE") {
-          setSyncStatus('local');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setSyncStatus('synced');
+          } else {
+            setSyncStatus('error');
+          }
         } else {
+          console.error(`Cloud Sync: POST failed with ${response.status}`);
           setSyncStatus('error');
         }
       } catch (e) {
+        console.error('Cloud Sync: Network error on save.', e);
         setSyncStatus('error');
       }
     }, 2000);
@@ -216,12 +201,7 @@ const App: React.FC = () => {
             Cloud Persistent
           </div>
         )}
-        {syncStatus === 'local' && (
-          <div className="bg-amber-100 text-amber-700 text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-200 shadow-sm opacity-60">
-            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-            Local Storage Only
-          </div>
-        )}
+
         {syncStatus === 'error' && (
           <div className="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
             <span>⚠️ Sync Failure</span>

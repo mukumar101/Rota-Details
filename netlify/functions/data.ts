@@ -1,6 +1,6 @@
 
 import { Handler } from '@netlify/functions';
-import { getStore } from '@netlify/blobs';
+import { getStore, connectLambda } from '@netlify/blobs';
 
 export const handler: Handler = async (event, context) => {
   const headers = {
@@ -15,8 +15,8 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    // Let Netlify automatically inject siteID, token & deploy context.
-    // Do NOT pass siteID/token manually — the runtime provides them.
+    // Bridge the Lambda event into the Blobs environment (required for Functions v1 Handler format).
+    connectLambda(event);
     const store = getStore('hospital-records');
 
     if (event.httpMethod === 'GET') {
@@ -30,10 +30,10 @@ export const handler: Handler = async (event, context) => {
       } catch (blobError: any) {
         console.error('Blob Get Error:', blobError);
         return {
-          statusCode: 200,
+          statusCode: 503,
           headers,
-          body: JSON.stringify({ 
-            error: "BLOB_NOT_CONFIGURED", 
+          body: JSON.stringify({
+            error: "BLOB_NOT_CONFIGURED",
             message: blobError.message,
             tip: "Ensure 'Netlify Blobs' is enabled in your site dashboard under 'Storage'."
           })
@@ -53,30 +53,30 @@ export const handler: Handler = async (event, context) => {
       } catch (postError: any) {
         console.error('Blob Post Error:', postError);
         return {
-          statusCode: 200,
+          statusCode: 503,
           headers,
-          body: JSON.stringify({ 
-            error: "BLOB_NOT_CONFIGURED", 
-            message: postError.message 
+          body: JSON.stringify({
+            error: "BLOB_WRITE_FAILED",
+            message: postError.message
           })
         };
       }
     }
 
-    return { 
-      statusCode: 405, 
-      headers, 
-      body: JSON.stringify({ error: 'Method Not Allowed' }) 
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method Not Allowed' })
     };
   } catch (criticalError: any) {
     console.error('Critical Function Error:', criticalError);
-    return { 
-      statusCode: 200, 
-      headers, 
-      body: JSON.stringify({ 
-        error: 'SERVER_UNAVAILABLE', 
+    return {
+      statusCode: 503,
+      headers,
+      body: JSON.stringify({
+        error: 'SERVER_UNAVAILABLE',
         message: criticalError.message || "Could not initialize blob store. Ensure you are running via 'netlify dev' or the site is deployed on Netlify."
-      }) 
+      })
     };
   }
 };
