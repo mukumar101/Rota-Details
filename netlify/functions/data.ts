@@ -15,12 +15,13 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    // Attempting to initialize with explicit check
-    // Note: On local, this requires running via `netlify dev`
+    // The user provided Site ID: b1d22fef-1fba-44d3-9de4-0e42c55242f3
+    // We try to use the environment variables first (standard Netlify behavior)
+    // and fall back to the provided ID if needed.
     const store = getStore({
       name: 'hospital-records',
-      // siteID and token are automatically injected by Netlify in production
-      // or by 'netlify dev' locally.
+      siteID: process.env.SITE_ID || 'b1d22fef-1fba-44d3-9de4-0e42c55242f3',
+      token: process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_AUTH_TOKEN
     });
 
     if (event.httpMethod === 'GET') {
@@ -37,8 +38,9 @@ export const handler: Handler = async (event, context) => {
           statusCode: 200,
           headers,
           body: JSON.stringify({ 
-            error: "BLOB_NOT_CONFIGURED", 
-            message: blobError.message 
+            error: "BLOB_READ_FAILED", 
+            message: blobError.message,
+            tip: "Ensure 'Netlify Blobs' is enabled in your site dashboard under 'Storage'."
           })
         };
       }
@@ -59,7 +61,7 @@ export const handler: Handler = async (event, context) => {
           statusCode: 200,
           headers,
           body: JSON.stringify({ 
-            error: "SYNC_SAVE_FAILED", 
+            error: "BLOB_WRITE_FAILED", 
             message: postError.message 
           })
         };
@@ -78,7 +80,8 @@ export const handler: Handler = async (event, context) => {
       headers, 
       body: JSON.stringify({ 
         error: 'SERVER_UNAVAILABLE', 
-        message: "The cloud storage environment is not configured. Please link your site to Netlify or run via 'netlify dev'." 
+        message: criticalError.message || "Credential error. Please ensure you are running via 'netlify dev' or have linked the site correctly.",
+        siteID: 'b1d22fef-1fba-44d3-9de4-0e42c55242f3'
       }) 
     };
   }
