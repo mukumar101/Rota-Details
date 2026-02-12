@@ -1,19 +1,13 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import StaffManagement from './components/StaffManagement';
 import ScheduleGrid from './components/ScheduleGrid';
 import TravelDetails from './components/TravelDetails';
+import Login from './components/Login';
 import { Staff, ViewType, ManualOverride, DutyStatus } from './types';
 import { getStatusForDate } from './utils/rotaUtils';
 
-/**
- * Seed data calculated to match the provided Travel Details table for Feb 2026.
- * Cycle: 15 days DUTY / 13 days OFF (28-day cycle)
- * Return to Site = Day 1 of Duty
- * Leaving Site = Day 15 of Duty
- */
 const INITIAL_STAFF: Staff[] = [
   { id: '1', name: 'Dr Inamullah', designation: 'Trauma Head', rotaPattern: '15/13', startDate: '2026-01-31', active: true },
   { id: '2', name: 'Dr Ghulam Ali', designation: 'Site Doctor', rotaPattern: '15/13', startDate: '2026-01-16', active: true },
@@ -26,35 +20,65 @@ const INITIAL_STAFF: Staff[] = [
 ];
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('medrota_auth') === 'true';
+  });
+  const [authError, setAuthError] = useState('');
   const [activeView, setActiveView] = useState<ViewType>('schedule');
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const [staffList, setStaffList] = useState<Staff[]>(() => {
     const saved = localStorage.getItem('medrota_staff');
     return saved ? JSON.parse(saved) : INITIAL_STAFF;
   });
+
   const [overrides, setOverrides] = useState<ManualOverride[]>(() => {
     const saved = localStorage.getItem('medrota_overrides');
     return saved ? JSON.parse(saved) : [];
   });
-  const [currentMonth, setCurrentMonth] = useState(1); // February (0-indexed)
+
+  const [currentMonth, setCurrentMonth] = useState(1); // February
   const [currentYear, setCurrentYear] = useState(2026);
 
-  // Persistence
+  // Sync Logic
+  const syncWithCloud = async () => {
+    if (!isAuthenticated) return;
+    setIsSyncing(true);
+    try {
+      // Call Netlify Function
+      await fetch('/.netlify/functions/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffList, overrides })
+      });
+      console.log('Cloud Sync Successful');
+    } catch (e) {
+      console.error('Cloud Sync Failed', e);
+    } finally {
+      setTimeout(() => setIsSyncing(false), 800);
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem('medrota_staff', JSON.stringify(staffList));
-  }, [staffList]);
-
-  useEffect(() => {
     localStorage.setItem('medrota_overrides', JSON.stringify(overrides));
-  }, [overrides]);
+    syncWithCloud();
+  }, [staffList, overrides]);
 
-  // Initial setup for the requested Feb 2026 view
-  useEffect(() => {
-    if (!localStorage.getItem('medrota_initialized_v2')) {
-      setCurrentMonth(1); 
-      setCurrentYear(2026);
-      localStorage.setItem('medrota_initialized_v2', 'true');
+  const handleLogin = (password: string) => {
+    if (password === 'admin') { // Simple password for demo
+      setIsAuthenticated(true);
+      sessionStorage.setItem('medrota_auth', 'true');
+      setAuthError('');
+    } else {
+      setAuthError('Invalid Access Key. Please contact the administrator.');
     }
-  }, []);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('medrota_auth');
+  };
 
   const todayStats = useMemo(() => {
     const today = new Date();
@@ -97,8 +121,30 @@ const App: React.FC = () => {
     }
   };
 
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} error={authError} />;
+  }
+
   return (
     <Layout activeView={activeView} onViewChange={setActiveView}>
+      <div className="fixed top-4 right-20 z-50 flex items-center gap-2 pointer-events-none">
+        {isSyncing && (
+          <div className="bg-emerald-500 text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1 animate-fade-in shadow-lg">
+            <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+            Syncing...
+          </div>
+        )}
+      </div>
+
+      <div className="absolute top-4 right-8 z-50">
+        <button 
+          onClick={handleLogout}
+          className="bg-white border border-slate-200 text-slate-500 text-xs px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all font-medium"
+        >
+          Logout
+        </button>
+      </div>
+
       {activeView === 'dashboard' && (
         <Dashboard 
           staffList={staffList} 
