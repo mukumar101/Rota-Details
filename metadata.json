@@ -1,0 +1,5 @@
+{
+  "name": "MedRota Pro",
+  "description": "A professional hospital staff rota scheduling system with automated rule-based duty generation and manual override capabilities.",
+  "requestFramePermissions": []
+}
