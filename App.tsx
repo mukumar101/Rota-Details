@@ -52,9 +52,8 @@ const App: React.FC = () => {
       try {
         const response = await fetch('/.netlify/functions/data');
         
-        // Handle physical endpoint missing (standard 404)
         if (response.status === 404) {
-          console.log('Cloud Sync: Function endpoint not detected. Operating in local-only mode.');
+          console.warn('Cloud Sync: Endpoint not detected.');
           loadFromLocal();
           setSyncStatus('local');
           return;
@@ -62,9 +61,9 @@ const App: React.FC = () => {
 
         const cloudData = await response.json();
 
-        // Check for specific "Not Configured" error from our function
-        if (cloudData.error === "BLOB_NOT_CONFIGURED" || cloudData.error === "SERVER_CRASH") {
-          console.info('Cloud Sync: Server side storage is not configured. Switching to local persistence.');
+        // Check for configuration errors from the function
+        if (cloudData.error === "BLOB_NOT_CONFIGURED" || cloudData.error === "SERVER_UNAVAILABLE") {
+          console.info('Cloud Sync: Server storage unavailable. Using local mode.');
           loadFromLocal();
           setSyncStatus('local');
           return;
@@ -74,13 +73,12 @@ const App: React.FC = () => {
           setStaffList(cloudData.staffList);
           setOverrides(cloudData.overrides || []);
           setSyncStatus('synced');
-          console.log('Cloud Sync: Data synchronized successfully.');
         } else {
           loadFromLocal();
           setSyncStatus('local');
         }
       } catch (e) {
-        console.warn('Cloud Sync: Could not establish connection. Using local fallback.');
+        console.warn('Cloud Sync: Network or fetch error. Falling back to local storage.');
         loadFromLocal();
         setSyncStatus('local');
       } finally {
@@ -95,35 +93,39 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoading || !isAuthenticated || staffList.length === 0) return;
 
-    // Always save to local storage immediately
+    // Persist to local storage immediately
     localStorage.setItem('medrota_staff', JSON.stringify(staffList));
     localStorage.setItem('medrota_overrides', JSON.stringify(overrides));
 
-    // Do not attempt to sync if we've already determined we are in "local-only" mode
-    if (syncStatus === 'local') return;
-
+    // If we are in local mode because of a config error, don't spam the console
+    // BUT we check again every time data changes to see if sync is possible now
     const syncTimer = setTimeout(async () => {
       setSyncStatus('syncing');
       try {
         const response = await fetch('/.netlify/functions/data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ staffList, overrides, lastUpdated: new Date().toISOString() })
+          body: JSON.stringify({ 
+            staffList, 
+            overrides, 
+            lastUpdated: new Date().toISOString(),
+            client: 'MedRota-Web-Client'
+          })
         });
         
         const result = await response.json();
         
         if (response.ok && result.success) {
           setSyncStatus('synced');
-        } else if (result.error === "BLOB_NOT_CONFIGURED" || result.error === "SERVER_CRASH") {
-          setSyncStatus('local'); // Graceful fallback if it fails mid-session
+        } else if (result.error === "BLOB_NOT_CONFIGURED" || result.error === "SERVER_UNAVAILABLE") {
+          setSyncStatus('local');
         } else {
           setSyncStatus('error');
         }
       } catch (e) {
         setSyncStatus('error');
       }
-    }, 3000);
+    }, 2000);
 
     return () => clearTimeout(syncTimer);
   }, [staffList, overrides, isLoading, isAuthenticated]);
@@ -215,14 +217,14 @@ const App: React.FC = () => {
           </div>
         )}
         {syncStatus === 'local' && (
-          <div className="bg-slate-100 text-slate-600 text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-200 shadow-sm opacity-60">
-            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
-            Local Mode
+          <div className="bg-amber-100 text-amber-700 text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-200 shadow-sm opacity-60">
+            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+            Local Storage Only
           </div>
         )}
         {syncStatus === 'error' && (
           <div className="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
-            <span>⚠️ Sync Issue</span>
+            <span>⚠️ Sync Failure</span>
           </div>
         )}
       </div>
@@ -230,7 +232,7 @@ const App: React.FC = () => {
       <div className="absolute top-4 right-8 z-50">
         <button 
           onClick={handleLogout}
-          className="bg-white border border-slate-200 text-slate-500 text-xs px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all font-medium"
+          className="bg-white border border-slate-200 text-slate-500 text-xs px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all font-medium shadow-sm"
         >
           Logout
         </button>

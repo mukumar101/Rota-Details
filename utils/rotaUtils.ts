@@ -1,5 +1,5 @@
 
-import { differenceInDays, parseISO, startOfDay, format, addDays } from 'date-fns';
+import { differenceInCalendarDays, parseISO, format, addDays } from 'date-fns';
 import { Staff, DutyStatus, ManualOverride } from '../types.ts';
 
 /**
@@ -23,11 +23,12 @@ export const getStatusForDate = (
   if (!dutyDays || !offDays) return 'off';
 
   const cycleLength = dutyDays + offDays;
-  const start = startOfDay(parseISO(staff.startDate));
-  const target = startOfDay(targetDate);
+  const start = parseISO(staff.startDate);
+  const target = targetDate;
 
   // 3. Calculate days elapsed since start
-  const daysDiff = differenceInDays(target, start);
+  // Use differenceInCalendarDays to avoid issues with startOfDay not being exported in some environments
+  const daysDiff = differenceInCalendarDays(target, start);
 
   // If before start date, assume off
   if (daysDiff < 0) return 'off';

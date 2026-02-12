@@ -46,6 +46,30 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
     }
   };
 
+  const exportToCSV = () => {
+    const headers = ['Staff Member', 'Designation', ...days.map(d => format(d, 'dd MMM'))];
+    const rows = activeStaff.map(staff => [
+      staff.name,
+      staff.designation,
+      ...days.map(d => getStatusForDate(staff, d, overrides).toUpperCase())
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Rota_${months[month]}_${year}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 no-print">
@@ -53,22 +77,28 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
           <select 
             value={month} 
             onChange={(e) => onMonthChange(parseInt(e.target.value))}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none font-semibold text-slate-700"
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none font-semibold text-slate-700 shadow-sm"
           >
             {months.map((m, i) => <option key={m} value={i}>{m}</option>)}
           </select>
           <select 
             value={year} 
             onChange={(e) => onYearChange(parseInt(e.target.value))}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none font-semibold text-slate-700"
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none font-semibold text-slate-700 shadow-sm"
           >
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div className="flex gap-2">
           <button 
+            onClick={exportToCSV}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition shadow-sm font-semibold flex items-center gap-2"
+          >
+            📥 Export CSV
+          </button>
+          <button 
             onClick={() => window.print()}
-            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition shadow-sm font-semibold"
+            className="px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition shadow-sm font-semibold flex items-center gap-2"
           >
             🖨️ Print Grid
           </button>
@@ -76,7 +106,7 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden flex flex-col print:border-slate-300 print:shadow-none">
-        <div className="overflow-x-auto flex-1">
+        <div className="overflow-x-auto flex-1 custom-scrollbar">
           <table className="w-full border-collapse table-fixed min-w-[1200px]">
             <thead>
               <tr className="bg-[#F8FAFC] border-b border-slate-200">

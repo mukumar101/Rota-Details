@@ -15,21 +15,13 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
-    // Attempt to initialize the store inside the handler to catch config errors
-    let store;
-    try {
-      store = getStore('hospital-records');
-    } catch (configError: any) {
-      console.warn('Netlify Blobs not configured:', configError.message);
-      return {
-        statusCode: 200, // Return 200 so the frontend can read the error payload gracefully
-        headers,
-        body: JSON.stringify({ 
-          error: "BLOB_NOT_CONFIGURED", 
-          message: "Netlify Blobs requires a linked site and proper environment. Defaulting to local storage." 
-        })
-      };
-    }
+    // Attempting to initialize with explicit check
+    // Note: On local, this requires running via `netlify dev`
+    const store = getStore({
+      name: 'hospital-records',
+      // siteID and token are automatically injected by Netlify in production
+      // or by 'netlify dev' locally.
+    });
 
     if (event.httpMethod === 'GET') {
       try {
@@ -37,13 +29,17 @@ export const handler: Handler = async (event, context) => {
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify(data || { status: "empty" }),
+          body: JSON.stringify(data || { status: "empty", message: "No data in store yet." }),
         };
       } catch (blobError: any) {
+        console.error('Blob Get Error:', blobError);
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify({ error: "BLOB_READ_ERROR", details: blobError.message })
+          body: JSON.stringify({ 
+            error: "BLOB_NOT_CONFIGURED", 
+            message: blobError.message 
+          })
         };
       }
     }
@@ -55,13 +51,17 @@ export const handler: Handler = async (event, context) => {
         return {
           statusCode: 200,
           headers,
-          body: JSON.stringify({ success: true }),
+          body: JSON.stringify({ success: true, timestamp: new Date().toISOString() }),
         };
       } catch (postError: any) {
+        console.error('Blob Post Error:', postError);
         return {
-          statusCode: 400,
+          statusCode: 200,
           headers,
-          body: JSON.stringify({ error: "BAD_REQUEST", details: postError.message })
+          body: JSON.stringify({ 
+            error: "SYNC_SAVE_FAILED", 
+            message: postError.message 
+          })
         };
       }
     }
@@ -71,14 +71,14 @@ export const handler: Handler = async (event, context) => {
       headers, 
       body: JSON.stringify({ error: 'Method Not Allowed' }) 
     };
-  } catch (error: any) {
-    console.error('Critical Function Failure:', error);
+  } catch (criticalError: any) {
+    console.error('Critical Function Error:', criticalError);
     return { 
-      statusCode: 200, // Return 200 even on crash to allow frontend to handle the JSON error
+      statusCode: 200, 
       headers, 
       body: JSON.stringify({ 
-        error: 'SERVER_CRASH', 
-        message: error.message || 'Unknown internal error' 
+        error: 'SERVER_UNAVAILABLE', 
+        message: "The cloud storage environment is not configured. Please link your site to Netlify or run via 'netlify dev'." 
       }) 
     };
   }

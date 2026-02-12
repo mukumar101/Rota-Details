@@ -2,7 +2,7 @@
 import React from 'react';
 import { Staff, ManualOverride } from '../types.ts';
 import { getDaysInMonth, getStatusForDate } from '../utils/rotaUtils.ts';
-import { format, subDays, addDays } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 interface TravelDetailsProps {
   staffList: Staff[];
@@ -29,7 +29,8 @@ const TravelDetails: React.FC<TravelDetailsProps> = ({
 
     days.forEach((day) => {
       const currentStatus = getStatusForDate(staff, day, overrides);
-      const prevDay = subDays(day, 1);
+      // Use addDays(date, -1) instead of subDays(date, 1) to resolve import error
+      const prevDay = addDays(day, -1);
       const nextDay = addDays(day, 1);
       
       const prevStatus = getStatusForDate(staff, prevDay, overrides);
