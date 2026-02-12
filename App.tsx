@@ -25,46 +25,83 @@ const App: React.FC = () => {
     return sessionStorage.getItem('medrota_auth') === 'true';
   });
   const [authError, setAuthError] = useState('');
-  const [activeView, setActiveView] = useState<ViewType>('schedule');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [activeView, setActiveView] = useState<ViewType>('dashboard');
+  
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('synced');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [staffList, setStaffList] = useState<Staff[]>(() => {
-    const saved = localStorage.getItem('medrota_staff');
-    return saved ? JSON.parse(saved) : INITIAL_STAFF;
-  });
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [overrides, setOverrides] = useState<ManualOverride[]>([]);
 
-  const [overrides, setOverrides] = useState<ManualOverride[]>(() => {
-    const saved = localStorage.getItem('medrota_overrides');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  const [currentMonth, setCurrentMonth] = useState(1); // February
-  const [currentYear, setCurrentYear] = useState(2026);
-
-  const syncWithCloud = async () => {
-    if (!isAuthenticated) return;
-    setIsSyncing(true);
-    try {
-      await fetch('/.netlify/functions/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffList, overrides })
-      });
-    } catch (e) {
-      console.error('Cloud Sync Failed', e);
-    } finally {
-      setTimeout(() => setIsSyncing(false), 800);
-    }
-  };
-
+  // 1. Initial Data Fetch from Netlify Blobs
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/.netlify/functions/data');
+        if (response.ok) {
+          const cloudData = await response.json();
+          if (cloudData.staffList && cloudData.staffList.length > 0) {
+            setStaffList(cloudData.staffList);
+            setOverrides(cloudData.overrides || []);
+            setSyncStatus('synced');
+            console.log('Data loaded from Netlify Blobs');
+          } else {
+            // Fallback to local if cloud is empty or status is "empty"
+            const savedStaff = localStorage.getItem('medrota_staff');
+            const savedOverrides = localStorage.getItem('medrota_overrides');
+            setStaffList(savedStaff ? JSON.parse(savedStaff) : INITIAL_STAFF);
+            setOverrides(savedOverrides ? JSON.parse(savedOverrides) : []);
+            setSyncStatus('local');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch from Blobs', e);
+        setSyncStatus('error');
+        const savedStaff = localStorage.getItem('medrota_staff');
+        setStaffList(savedStaff ? JSON.parse(savedStaff) : INITIAL_STAFF);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, [isAuthenticated]);
+
+  // 2. Debounced Sync to Netlify Blobs
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || staffList.length === 0) return;
+
     localStorage.setItem('medrota_staff', JSON.stringify(staffList));
     localStorage.setItem('medrota_overrides', JSON.stringify(overrides));
-    syncWithCloud();
-  }, [staffList, overrides]);
+
+    const syncTimer = setTimeout(async () => {
+      setSyncStatus('syncing');
+      try {
+        const response = await fetch('/.netlify/functions/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffList, overrides, lastUpdated: new Date().toISOString() })
+        });
+        if (response.ok) {
+          setSyncStatus('synced');
+        } else {
+          setSyncStatus('error');
+        }
+      } catch (e) {
+        setSyncStatus('error');
+      }
+    }, 1500);
+
+    return () => clearTimeout(syncTimer);
+  }, [staffList, overrides, isLoading, isAuthenticated]);
 
   const handleLogin = (password: string) => {
-    // Changed allowed password from 'admin' to 'mk123'
     if (password === 'mk123') {
       setIsAuthenticated(true);
       sessionStorage.setItem('medrota_auth', 'true');
@@ -124,13 +161,35 @@ const App: React.FC = () => {
     return <Login onLogin={handleLogin} error={authError} />;
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Loading Hospital Records from Cloud...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout activeView={activeView} onViewChange={setActiveView}>
-      <div className="fixed top-4 right-20 z-50 flex items-center gap-2 pointer-events-none">
-        {isSyncing && (
-          <div className="bg-emerald-500 text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1 animate-fade-in shadow-lg">
+      <div className="fixed top-4 right-24 z-50 flex items-center gap-2 pointer-events-none">
+        {syncStatus === 'syncing' && (
+          <div className="bg-blue-600 text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
             Syncing...
+          </div>
+        )}
+        {syncStatus === 'synced' && (
+          <div className="bg-emerald-100 text-emerald-700 text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 border border-emerald-200 shadow-sm opacity-60">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+            Cloud Persistent
+          </div>
+        )}
+        {syncStatus === 'error' && (
+          <div className="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
+            <span>⚠️ Sync Failure</span>
           </div>
         )}
       </div>

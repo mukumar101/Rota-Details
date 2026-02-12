@@ -1,36 +1,74 @@
-import { Handler } from '@netlify/functions';
 
-// In a real production app, you would use a database driver here (e.g., MongoClient or Supabase)
-// For this Netlify-ready template, we provide the structure for the API.
+import { Handler } from '@netlify/functions';
+import { getStore } from '@netlify/blobs';
+
+/**
+ * MEDROTA CLOUD SYNC FUNCTION (Netlify Blobs Version)
+ * This function uses Netlify's built-in Key-Value storage (Blobs) 
+ * to persist hospital data without an external database.
+ */
+
 export const handler: Handler = async (event, context) => {
   const { httpMethod } = event;
+  
+  // Initialize the Netlify Blob store
+  const store = getStore('hospital-records');
 
-  // Simple auth check simulation (Netlify Identity provides context.clientContext if enabled)
-  // const { user } = context.clientContext || {};
-  // if (!user) return { statusCode: 401, body: 'Unauthorized' };
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
+  if (httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers };
+  }
 
   try {
     if (httpMethod === 'GET') {
-      // Logic to fetch from DB would go here
+      // Fetch the data from the blob store
+      const data = await store.get('rota-json', { type: 'json' });
+      
       return {
         statusCode: 200,
-        body: JSON.stringify({ message: "Data fetched successfully (Simulated)" }),
+        headers,
+        body: JSON.stringify(data || { 
+          status: "empty", 
+          message: "No cloud data found yet." 
+        }),
       };
     }
 
     if (httpMethod === 'POST') {
       const payload = JSON.parse(event.body || '{}');
-      // Logic to save to DB would go here
-      console.log('Saving to database:', payload);
       
+      // Save the payload to the blob store
+      await store.setJSON('rota-json', payload);
+
       return {
         statusCode: 200,
-        body: JSON.stringify({ success: true, timestamp: new Date().toISOString() }),
+        headers,
+        body: JSON.stringify({ 
+          success: true, 
+          syncedAt: new Date().toISOString(),
+          persistent: true,
+          provider: "Netlify Blobs"
+        }),
       };
     }
 
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  } catch (error) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Internal Server Error' }) };
+    return { 
+      statusCode: 405, 
+      headers, 
+      body: JSON.stringify({ error: 'Method Not Allowed' }) 
+    };
+  } catch (error: any) {
+    console.error('Server Error:', error);
+    return { 
+      statusCode: 500, 
+      headers, 
+      body: JSON.stringify({ error: 'Sync Error', details: error.message }) 
+    };
   }
 };
