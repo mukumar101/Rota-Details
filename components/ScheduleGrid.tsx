@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Staff, ManualOverride, DutyStatus } from '../types';
-import { getDaysInMonth, getStatusForDate } from '../utils/rotaUtils';
+import { Staff, ManualOverride, DutyStatus } from '../types.ts';
+import { getDaysInMonth, getStatusForDate } from '../utils/rotaUtils.ts';
 import { format, isWeekend } from 'date-fns';
 
 interface ScheduleGridProps {
@@ -39,9 +39,9 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
 
   const getStatusStyle = (status: DutyStatus) => {
     switch (status) {
-      case 'duty': return 'text-[#2563EB] font-black bg-[#EFF6FF]'; // High contrast blue
-      case 'off': return 'text-[#94A3B8] font-medium bg-white';    // Muted grey
-      case 'leave': return 'text-[#D97706] font-black bg-[#FFFBEB]'; // Amber
+      case 'duty': return 'text-[#2563EB] font-black bg-[#EFF6FF]';
+      case 'off': return 'text-[#94A3B8] font-medium bg-white';
+      case 'leave': return 'text-[#D97706] font-black bg-[#FFFBEB]';
       default: return '';
     }
   };
@@ -122,7 +122,6 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
                   })}
                 </tr>
               ))}
-              {/* Daily Count Row */}
               <tr className="bg-slate-50/95 font-black border-t-2 border-slate-200">
                 <td className="sticky left-0 z-10 bg-slate-50 px-6 py-5 border-r border-slate-200 text-[11px] text-slate-500 uppercase tracking-widest">
                   Total Staff On Duty
@@ -138,24 +137,6 @@ const ScheduleGrid: React.FC<ScheduleGridProps> = ({
               </tr>
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-6 p-5 bg-[#F8FAFC] rounded-2xl border border-slate-200 print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-lg bg-[#EFF6FF] border border-blue-200 flex items-center justify-center text-[9px] font-black text-blue-600">D</div>
-          <span className="text-[11px] font-black text-slate-600 uppercase tracking-wider">Duty / Return</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[9px] font-black text-slate-400">O</div>
-          <span className="text-[11px] font-black text-slate-600 uppercase tracking-wider">Off / Leaving</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-lg bg-[#FFFBEB] border border-amber-200 flex items-center justify-center text-[9px] font-black text-amber-600">L</div>
-          <span className="text-[11px] font-black text-slate-600 uppercase tracking-wider">Leave</span>
-        </div>
-        <div className="ml-auto text-[10px] font-bold text-slate-400 italic">
-          Tip: Tap any cell to manually toggle status for overrides.
         </div>
       </div>
     </div>

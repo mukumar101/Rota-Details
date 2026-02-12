@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Staff, Designation } from '../types';
+import { Staff, Designation } from '../types.ts';
 
 interface StaffManagementProps {
   staffList: Staff[];
@@ -14,7 +14,6 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staffList, onAdd, onU
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
 
-  // Form State
   const [formData, setFormData] = useState({
     name: '',
     designation: 'RN' as Designation,
@@ -42,7 +41,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staffList, onAdd, onU
     setEditingStaff(staff);
     setFormData({
       name: staff.name,
-      designation: staff.designation,
+      designation: staff.designation as Designation,
       rotaPattern: staff.rotaPattern,
       startDate: staff.startDate,
       active: staff.active
@@ -121,118 +120,78 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staffList, onAdd, onU
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => openEditModal(staff)}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                      title="Edit"
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      onClick={() => onDelete(staff.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
+                    <button onClick={() => openEditModal(staff)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg">✏️</button>
+                    <button onClick={() => onDelete(staff.id)} className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg">🗑️</button>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {filteredStaff.length === 0 && (
-          <div className="p-12 text-center">
-            <p className="text-slate-400">No staff members found matching your search.</p>
-          </div>
-        )}
       </div>
 
-      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="text-xl font-bold text-slate-900">{editingStaff ? 'Edit Staff Member' : 'Add New Staff'}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
+              <h3 className="text-xl font-bold">{editingStaff ? 'Edit Staff Member' : 'Add New Staff'}</h3>
               <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 text-2xl">×</button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-semibold mb-1">Full Name</label>
                   <input
                     required
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    className="w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
                     placeholder="e.g. Dr. Sarah Jenkins"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Designation</label>
+                    <label className="block text-sm font-semibold mb-1">Designation</label>
                     <select
                       value={formData.designation}
                       onChange={(e) => setFormData({...formData, designation: e.target.value as Designation})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none"
+                      className="w-full px-4 py-2 rounded-xl border outline-none"
                     >
                       <option value="Doctor">Doctor</option>
                       <option value="RN">RN (Nurse)</option>
                       <option value="Consultant">Consultant</option>
                       <option value="Technician">Technician</option>
+                      <option value="Trauma Head">Trauma Head</option>
+                      <option value="Site Doctor">Site Doctor</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Rota Pattern (Duty/Off)</label>
+                    <label className="block text-sm font-semibold mb-1">Rota Pattern (Duty/Off)</label>
                     <input
                       required
                       type="text"
                       value={formData.rotaPattern}
                       onChange={(e) => setFormData({...formData, rotaPattern: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      className="w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none"
                       placeholder="e.g. 15/13"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Cycle Start Date</label>
-                    <input
-                      required
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition"
-                    />
-                  </div>
-                  <div className="flex items-center pt-6">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.active}
-                        onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                        className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-slate-700">Currently Active</span>
-                    </label>
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Cycle Start Date</label>
+                  <input
+                    required
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                    className="w-full px-4 py-2 rounded-xl border outline-none"
+                  />
                 </div>
               </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium shadow-md shadow-blue-200"
-                >
-                  {editingStaff ? 'Update Member' : 'Save Member'}
-                </button>
+              <div className="flex gap-3">
+                <button type="button" onClick={closeModal} className="flex-1 py-3 border rounded-xl">Cancel</button>
+                <button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl shadow-lg">Save Member</button>
               </div>
             </form>
           </div>

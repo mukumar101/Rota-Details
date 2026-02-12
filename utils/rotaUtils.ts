@@ -1,6 +1,6 @@
 
 import { differenceInDays, parseISO, startOfDay, format, addDays } from 'date-fns';
-import { Staff, DutyStatus, ManualOverride } from '../types';
+import { Staff, DutyStatus, ManualOverride } from '../types.ts';
 
 /**
  * The core Rota Algorithm

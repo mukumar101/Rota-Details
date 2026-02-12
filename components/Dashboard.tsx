@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Staff, DailyStats } from '../types';
+import { Staff, DailyStats } from '../types.ts';
 import { format } from 'date-fns';
 
 interface DashboardProps {
@@ -102,12 +102,6 @@ const Dashboard: React.FC<DashboardProps> = ({ staffList, todayStats, onNavigate
               </div>
               <span className="text-slate-400 group-hover:text-blue-400">→</span>
             </button>
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mt-6">
-              <p className="text-sm text-blue-800 font-semibold mb-2">Rule Engine Status</p>
-              <p className="text-xs text-blue-600 leading-relaxed">
-                The automatic scheduler is processing staff patterns correctly. No conflicts detected for the current month.
-              </p>
-            </div>
           </div>
         </div>
       </div>

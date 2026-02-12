@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import StaffManagement from './components/StaffManagement';
-import ScheduleGrid from './components/ScheduleGrid';
-import TravelDetails from './components/TravelDetails';
-import Login from './components/Login';
-import { Staff, ViewType, ManualOverride, DutyStatus } from './types';
-import { getStatusForDate } from './utils/rotaUtils';
+import Layout from './components/Layout.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import StaffManagement from './components/StaffManagement.tsx';
+import ScheduleGrid from './components/ScheduleGrid.tsx';
+import TravelDetails from './components/TravelDetails.tsx';
+import Login from './components/Login.tsx';
+import { Staff, ViewType, ManualOverride, DutyStatus } from './types.ts';
+import { getStatusForDate } from './utils/rotaUtils.ts';
 
 const INITIAL_STAFF: Staff[] = [
   { id: '1', name: 'Dr Inamullah', designation: 'Trauma Head', rotaPattern: '15/13', startDate: '2026-01-31', active: true },
@@ -40,18 +41,15 @@ const App: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(1); // February
   const [currentYear, setCurrentYear] = useState(2026);
 
-  // Sync Logic
   const syncWithCloud = async () => {
     if (!isAuthenticated) return;
     setIsSyncing(true);
     try {
-      // Call Netlify Function
       await fetch('/.netlify/functions/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffList, overrides })
       });
-      console.log('Cloud Sync Successful');
     } catch (e) {
       console.error('Cloud Sync Failed', e);
     } finally {
@@ -66,7 +64,7 @@ const App: React.FC = () => {
   }, [staffList, overrides]);
 
   const handleLogin = (password: string) => {
-    if (password === 'admin') { // Simple password for demo
+    if (password === 'admin') {
       setIsAuthenticated(true);
       sessionStorage.setItem('medrota_auth', 'true');
       setAuthError('');
